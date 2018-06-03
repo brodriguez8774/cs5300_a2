@@ -1,3 +1,7 @@
 
 # Exclude all generated log files.
 resources/logs/*
+
+# Exclude MNIST data folder.
+MNIST_data/*
+CIFAR-10_data/*

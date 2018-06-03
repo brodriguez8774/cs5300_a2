@@ -14,50 +14,65 @@ from resources import logging
 logger = logging.get_logger(__name__)
 
 
-logger.info('Starting MNIST Tensor Net.')
+class DeepMnist():
+    def __init__(self):
+        logger.info('Starting Deep MNIST Tensor Net.')
 
-# Grab MNIST data.
-mnist_data = input_data.read_data_sets("MNIST_data/", one_hot=True)
+        self.mnist_data = input_data.read_data_sets('MNIST_data', one_hot=True)
+        self.input_matrix = None
+        self.output_matrix = None
+        self.delta_matrix = None
+        self.cross_entropy = self.create_model()
 
-# Create TensorFlow data structs, called "Tensors" (aka multi-dimensional matrixes).
-# None means it can take in any length. 784 is the number of pixels per image.
-input_matrix = tensorflow.placeholder(tensorflow.float32, [None, 784])
-weights = tensorflow.Variable(tensorflow.zeros([784, 10]))
-biases = tensorflow.Variable(tensorflow.zeros([10]))
+    def __del__(self):
+        logger.info('Deep MNIST Tensor Net finished.')
 
-# Implement the learning model, using above structs.
-output_matrix = tensorflow.nn.softmax(tensorflow.matmul(input_matrix, weights) + biases)
+    def train(self):
+        """
+        Train tensor net.
+        """
+        # Define a training step, using delta and Gradient Descent. Learning rate of 0.5.
+        train_step = tensorflow.train.GradientDescentOptimizer(0.5).minimize(self.cross_entropy)
 
-# Create struct to hold error, using "Cross-Entropy".
-delta = tensorflow.placeholder(tensorflow.float32, [None, 10])
+        # Initialize tensorflow session.
+        tensor_session = tensorflow.InteractiveSession()
+        tensorflow.global_variables_initializer().run()
 
-# Implement Cross-Entropy function.
-cross_entropy = tensorflow.reduce_mean(
-    -tensorflow.reduce_sum(delta * tensorflow.log(output_matrix), reduction_indices=[1],
-))
+        # Actually step through and train on data.
+        for index in range(1000):
+            features, targets = self.mnist_data.train.next_batch(100)
+            tensor_session.run(
+                train_step,
+                feed_dict={self.input_matrix: features, self.delta_matrix: targets}
+            )
 
-# Tell it to train with Gradient Descent. Minimize errors using cross_entropy. Learning rate of 0.5.
-train_step = tensorflow.train.GradientDescentOptimizer(0.5).minimize(cross_entropy)
+        # Evaluate training results and print out.
+        correct_prediction = tensorflow.equal(tensorflow.argmax(self.output_matrix, 1), tensorflow.argmax(self.delta_matrix, 1))
+        accuracy = tensorflow.reduce_mean(tensorflow.cast(correct_prediction, tensorflow.float32))
 
-# Launch tensorflow session now that structure defined.
-tensor_session = tensorflow.InteractiveSession()
+        logger.info(
+            tensor_session.run(
+                accuracy,
+                feed_dict={self.input_matrix: self.mnist_data.test.images, self.delta_matrix: self.mnist_data.test.labels}
+            )
+        )
 
-# Initialize defined variables (weights, biases, etc).
-tensorflow.global_variables_initializer().run()
+    def create_model(self):
+        """
+        Create various "tensors" (multi-dimensional matrixes) to manipulate data.
+        A shape value of "None" means it can take in any arbitrary number of items in that dimension.
+        784 is the total number of pixels per input image.
+        :return: Returns "cross_entropy" function, which is used to hold error.
+        """
+        # Define initial matrix setups.
+        self.input_matrix = tensorflow.placeholder(tensorflow.float32, shape=[None, 784])
+        weight_matrix = tensorflow.Variable(tensorflow.zeros([784, 10]))
+        bias_matrix = tensorflow.Variable(tensorflow.zeros([10]))
 
-# Run training step 1000 times. Each step grabs a random batch of 100 training values to use.
-for index in range(1000):
-    features, targets = mnist_data.train.next_batch(100)
-    tensor_session.run(train_step, feed_dict={input_matrix: features, delta: targets})
+        # Define output and loss matrix setups.
+        self.output_matrix = tensorflow.matmul(self.input_matrix, weight_matrix) + bias_matrix
+        self.delta_matrix = tensorflow.placeholder(tensorflow.float32, [None, 10])
+        cross_entropy = tensorflow.reduce_mean(
+            tensorflow.nn.softmax_cross_entropy_with_logits(labels=self.delta_matrix, logits=self.output_matrix))
 
-# Evaluate tensor net.
-correct_prediction = tensorflow.equal(tensorflow.argmax(output_matrix, 1), tensorflow.argmax(delta, 1))
-accuracy = tensorflow.reduce_mean(tensorflow.cast(correct_prediction, tensorflow.float32))
-
-# Finally, print out accuracy in a human-readible format.
-logger.info(tensor_session.run(
-    accuracy,
-    feed_dict={input_matrix: mnist_data.test.images, delta: mnist_data.test.labels}
-))
-
-logger.info('MNIST Tensor Net finished.')
+        return cross_entropy

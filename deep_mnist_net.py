@@ -1,5 +1,5 @@
 """
-An image recognition neural net based off of the mnist dataset.
+A more advanced image recognition neural net based off of the mnist dataset.
 """
 
 # System Imports.
@@ -14,9 +14,9 @@ from resources import logging
 logger = logging.get_logger(__name__)
 
 
-class BasicMnist():
+class DeepMnist():
     def __init__(self):
-        logger.info('Starting Basic MNIST Tensor Net.')
+        logger.info('Starting Deep MNIST Tensor Net.')
 
         self.mnist_data = input_data.read_data_sets('MNIST_data', one_hot=True)
         self.input_matrix = None
@@ -25,7 +25,7 @@ class BasicMnist():
         self.cross_entropy = self.create_model()
 
     def __del__(self):
-        logger.info('Basic MNIST Tensor Net finished.')
+        logger.info('Deep MNIST Tensor Net finished.')
 
     def train(self):
         """

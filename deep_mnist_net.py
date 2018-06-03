@@ -27,6 +27,26 @@ class DeepMnist():
     def __del__(self):
         logger.info('Deep MNIST Tensor Net finished.')
 
+    def create_model(self):
+        """
+        Create various "tensors" (multi-dimensional matrixes) to manipulate data.
+        A shape value of "None" means it can take in any arbitrary number of items in that dimension.
+        784 is the total number of pixels per input image.
+        :return: Returns "cross_entropy" function, which is used to hold error.
+        """
+        # Define initial matrix setups.
+        self.input_matrix = tensorflow.placeholder(tensorflow.float32, shape=[None, 784])
+        weight_matrix = tensorflow.Variable(tensorflow.zeros([784, 10]))
+        bias_matrix = tensorflow.Variable(tensorflow.zeros([10]))
+
+        # Define output and loss matrix setups.
+        self.output_matrix = tensorflow.matmul(self.input_matrix, weight_matrix) + bias_matrix
+        self.delta_matrix = tensorflow.placeholder(tensorflow.float32, [None, 10])
+        cross_entropy = tensorflow.reduce_mean(
+            tensorflow.nn.softmax_cross_entropy_with_logits(labels=self.delta_matrix, logits=self.output_matrix))
+
+        return cross_entropy
+
     def train(self):
         """
         Train tensor net.
@@ -56,23 +76,3 @@ class DeepMnist():
                 feed_dict={self.input_matrix: self.mnist_data.test.images, self.delta_matrix: self.mnist_data.test.labels}
             )
         )
-
-    def create_model(self):
-        """
-        Create various "tensors" (multi-dimensional matrixes) to manipulate data.
-        A shape value of "None" means it can take in any arbitrary number of items in that dimension.
-        784 is the total number of pixels per input image.
-        :return: Returns "cross_entropy" function, which is used to hold error.
-        """
-        # Define initial matrix setups.
-        self.input_matrix = tensorflow.placeholder(tensorflow.float32, shape=[None, 784])
-        weight_matrix = tensorflow.Variable(tensorflow.zeros([784, 10]))
-        bias_matrix = tensorflow.Variable(tensorflow.zeros([10]))
-
-        # Define output and loss matrix setups.
-        self.output_matrix = tensorflow.matmul(self.input_matrix, weight_matrix) + bias_matrix
-        self.delta_matrix = tensorflow.placeholder(tensorflow.float32, [None, 10])
-        cross_entropy = tensorflow.reduce_mean(
-            tensorflow.nn.softmax_cross_entropy_with_logits(labels=self.delta_matrix, logits=self.output_matrix))
-
-        return cross_entropy

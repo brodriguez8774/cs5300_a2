@@ -14,18 +14,23 @@ from resources import logging
 logger = logging.get_logger(__name__)
 
 
-class DeepMnist():
+class ConvMnist():
     def __init__(self):
-        logger.info('Starting Deep MNIST Tensor Net.')
+        logger.info('Starting Conv MNIST Tensor Net.')
 
+        self.tensor_session = None
         self.mnist_data = input_data.read_data_sets('MNIST_data', one_hot=True)
         self.input_matrix = None
         self.output_matrix = None
         self.delta_matrix = None
+        self.keep_prob = tensorflow.placeholder(tensorflow.float32)
         self.cross_entropy = self.create_model()
 
     def __del__(self):
-        logger.info('Deep MNIST Tensor Net finished.')
+        # Close tensorflow session.
+        if self.tensor_session:
+            self.tensor_session.close()
+        logger.info('Conv MNIST Tensor Net finished.')
 
     def create_model(self):
         """
@@ -61,7 +66,7 @@ class DeepMnist():
 
         # Define dense layer.
         # Images are now 7x7 with 64 features.
-        dense_1_weights = tensorflow.Variable(tensorflow.zeros([7 * 7 * 64, 1024]))
+        dense_1_weights = tensorflow.Variable(tensorflow.truncated_normal([7 * 7 * 64, 1024], mean=0.0, stddev=0.01))
         dense_1_biases = tensorflow.Variable(tensorflow.zeros([1024]))
 
         # What does this do??
@@ -73,17 +78,17 @@ class DeepMnist():
 
         # "Dropout" layer used during training to prevent overfitting.
         # Note: Syntax does not seem to be supported by tensorflow 1.5. Excluding dropout functionality.
-        # dropout_matrix = tensorflow.placeholder(tensorflow.float32)
-        # hidden_drop = tensorflow.nn.dropout(conv_output, dropout_matrix)
+        # self.keep_prob = tensorflow.placeholder(tensorflow.float32)
+        hidden_drop = tensorflow.nn.dropout(conv_output, self.keep_prob)
 
         # Create final dense layer.
-        dense_2_weights = tensorflow.Variable(tensorflow.zeros([1024, 10]))
-        dense_2_bias = tensorflow.Variable(tensorflow.zeros([10]))
-        self.output_matrix = tensorflow.matmul(conv_output, dense_2_weights) + dense_2_bias
+        dense_2_weights = tensorflow.Variable(tensorflow.truncated_normal([1024, 10], mean=0.0, stddev=0.01))
+        dense_2_bias = tensorflow.Variable(tensorflow.truncated_normal([10], mean=0.0, stddev=0.01))
+        self.output_matrix = tensorflow.matmul(hidden_drop, dense_2_weights) + dense_2_bias
 
         # Determine cross entropy.
         cross_entropy = tensorflow.reduce_mean(
-            tensorflow.nn.softmax_cross_entropy_with_logits(labels=self.delta_matrix, logits=self.output_matrix)
+            tensorflow.nn.softmax_cross_entropy_with_logits_v2(labels=self.delta_matrix, logits=self.output_matrix)
         )
 
         return cross_entropy
@@ -111,10 +116,10 @@ class DeepMnist():
         Train tensor net.
         """
         # Define a training step, using delta and Gradient Descent. Learning rate of 0.5.
-        train_step = tensorflow.train.AdamOptimizer(1e-4).minimize(self.cross_entropy)
+        train_step = tensorflow.train.GradientDescentOptimizer(0.5).minimize(self.cross_entropy)
 
         # Initialize tensorflow session.
-        tensor_session = tensorflow.InteractiveSession()
+        self.tensor_session = tensorflow.InteractiveSession()
         tensorflow.global_variables_initializer().run()
 
         # Create structures to calculate accuracy.
@@ -124,31 +129,32 @@ class DeepMnist():
         )
         accuracy = tensorflow.reduce_mean(tensorflow.cast(correct_prediction, tensorflow.float32))
         highest_accuracy = 0
+        logger.info('')
+        logger.info('')
 
         # Actually step through and train on data.
-        for index in range(100):
-            features, targets = self.mnist_data.train.next_batch(25)
-            logger.info('Index {0}'.format(index))
+        for index in range(1000):
+            features, targets = self.mnist_data.train.next_batch(50)
 
             # Only print out every 100 values.
             if index % 100 == 0:
                 train_accuracy = accuracy.eval(
-                    feed_dict={self.input_matrix: features, self.delta_matrix: targets}
+                    feed_dict={self.input_matrix: features, self.delta_matrix: targets, self.keep_prob: 1.0}
                 )
                 if train_accuracy > highest_accuracy:
                     highest_accuracy = train_accuracy
                 logger.info('Step: {0} | Cur Accuracy: {1} | Best Accuracy: {2}'.format(index, train_accuracy, highest_accuracy))
 
-            tensor_session.run(
+            self.tensor_session.run(
                 train_step,
-                feed_dict={self.input_matrix: features, self.delta_matrix: targets}
+                feed_dict={self.input_matrix: features, self.delta_matrix: targets, self.keep_prob: 0.5}
             )
 
         # Evaluate training results and print out.
         logger.info('Testing Accuracy: {0}   Best Training Accuracy: {1}'.format(
-            tensor_session.run(
+            self.tensor_session.run(
                 accuracy,
-                feed_dict={self.input_matrix: self.mnist_data.test.images, self.delta_matrix: self.mnist_data.test.labels}
+                feed_dict={self.input_matrix: self.mnist_data.test.images, self.delta_matrix: self.mnist_data.test.labels, self.keep_prob: 1.0}
             ),
             highest_accuracy
         ))

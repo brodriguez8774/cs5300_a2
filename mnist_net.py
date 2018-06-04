@@ -18,6 +18,7 @@ class BasicMnist():
     def __init__(self):
         logger.info('Starting Basic MNIST Tensor Net.')
 
+        self.tensor_session = None
         self.mnist_data = input_data.read_data_sets('MNIST_data', one_hot=True)
         self.input_matrix = None
         self.output_matrix = None
@@ -25,6 +26,9 @@ class BasicMnist():
         self.cross_entropy = self.create_model()
 
     def __del__(self):
+        # Close tensorflow session.
+        if self.tensor_session:
+            self.tensor_session.close()
         logger.info('Basic MNIST Tensor Net finished.')
 
     def create_model(self):
@@ -43,7 +47,7 @@ class BasicMnist():
         self.output_matrix = tensorflow.matmul(self.input_matrix, weight_matrix) + bias_matrix
         self.delta_matrix = tensorflow.placeholder(tensorflow.float32, [None, 10])
         cross_entropy = tensorflow.reduce_mean(
-            tensorflow.nn.softmax_cross_entropy_with_logits(labels=self.delta_matrix, logits=self.output_matrix))
+            tensorflow.nn.softmax_cross_entropy_with_logits_v2(labels=self.delta_matrix, logits=self.output_matrix))
 
         return cross_entropy
 
@@ -55,7 +59,7 @@ class BasicMnist():
         train_step = tensorflow.train.GradientDescentOptimizer(0.5).minimize(self.cross_entropy)
 
         # Initialize tensorflow session.
-        tensor_session = tensorflow.InteractiveSession()
+        self.tensor_session = tensorflow.InteractiveSession()
         tensorflow.global_variables_initializer().run()
 
         # Create structures to calculate accuracy.
@@ -65,6 +69,8 @@ class BasicMnist():
         )
         accuracy = tensorflow.reduce_mean(tensorflow.cast(correct_prediction, tensorflow.float32))
         highest_accuracy = 0
+        logger.info('')
+        logger.info('')
 
         # Actually step through and train on data.
         for index in range(1000):
@@ -80,14 +86,14 @@ class BasicMnist():
                 logger.info('Step: {0} | Cur Accuracy: {1} | Best Accuracy: {2}'.format(index, train_accuracy, highest_accuracy))
 
             # Run a training step.
-            tensor_session.run(
+            self.tensor_session.run(
                 train_step,
                 feed_dict={self.input_matrix: features, self.delta_matrix: targets}
             )
 
         # Evaluate training results and print out.
         logger.info('Testing Accuracy: {0}   Best Training Accuracy: {1}'.format(
-            tensor_session.run(
+            self.tensor_session.run(
                 accuracy,
                 feed_dict={self.input_matrix: self.mnist_data.test.images, self.delta_matrix: self.mnist_data.test.labels}
             ),

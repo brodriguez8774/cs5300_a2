@@ -117,22 +117,38 @@ class DeepMnist():
         tensor_session = tensorflow.InteractiveSession()
         tensorflow.global_variables_initializer().run()
 
+        # Create structures to calculate accuracy.
+        correct_prediction = tensorflow.equal(
+            tensorflow.argmax(self.output_matrix, 1),
+            tensorflow.argmax(self.delta_matrix, 1)
+        )
+        accuracy = tensorflow.reduce_mean(tensorflow.cast(correct_prediction, tensorflow.float32))
+        highest_accuracy = 0
+
         # Actually step through and train on data.
-        for index in range(1000):
-            logger.info('Starting batch number {0}'.format(index))
-            features, targets = self.mnist_data.train.next_batch(100)
+        for index in range(100):
+            features, targets = self.mnist_data.train.next_batch(25)
+            logger.info('Index {0}'.format(index))
+
+            # Only print out every 100 values.
+            if index % 100 == 0:
+                train_accuracy = accuracy.eval(
+                    feed_dict={self.input_matrix: features, self.delta_matrix: targets}
+                )
+                if train_accuracy > highest_accuracy:
+                    highest_accuracy = train_accuracy
+                logger.info('Step: {0} | Cur Accuracy: {1} | Best Accuracy: {2}'.format(index, train_accuracy, highest_accuracy))
+
             tensor_session.run(
                 train_step,
                 feed_dict={self.input_matrix: features, self.delta_matrix: targets}
             )
 
         # Evaluate training results and print out.
-        correct_prediction = tensorflow.equal(tensorflow.argmax(self.output_matrix, 1), tensorflow.argmax(self.delta_matrix, 1))
-        accuracy = tensorflow.reduce_mean(tensorflow.cast(correct_prediction, tensorflow.float32))
-
-        logger.info(
+        logger.info('Testing Accuracy: {0}   Best Training Accuracy: {1}'.format(
             tensor_session.run(
                 accuracy,
                 feed_dict={self.input_matrix: self.mnist_data.test.images, self.delta_matrix: self.mnist_data.test.labels}
-            )
-        )
+            ),
+            highest_accuracy
+        ))

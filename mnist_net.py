@@ -36,8 +36,8 @@ class BasicMnist():
         """
         # Define initial matrix setups.
         self.input_matrix = tensorflow.placeholder(tensorflow.float32, shape=[None, 784])
-        weight_matrix = tensorflow.Variable(tensorflow.zeros([784, 10]))
-        bias_matrix = tensorflow.Variable(tensorflow.zeros([10]))
+        weight_matrix = tensorflow.Variable(tensorflow.truncated_normal([784, 10], stddev=0.1))
+        bias_matrix = tensorflow.Variable(tensorflow.constant(0.1, shape=[10]))
 
         # Define output and loss matrix setups.
         self.output_matrix = tensorflow.matmul(self.input_matrix, weight_matrix) + bias_matrix
@@ -58,21 +58,38 @@ class BasicMnist():
         tensor_session = tensorflow.InteractiveSession()
         tensorflow.global_variables_initializer().run()
 
+        # Create structures to calculate accuracy.
+        correct_prediction = tensorflow.equal(
+            tensorflow.argmax(self.output_matrix, 1),
+            tensorflow.argmax(self.delta_matrix, 1)
+        )
+        accuracy = tensorflow.reduce_mean(tensorflow.cast(correct_prediction, tensorflow.float32))
+        highest_accuracy = 0
+
         # Actually step through and train on data.
         for index in range(1000):
-            features, targets = self.mnist_data.train.next_batch(100)
+            features, targets = self.mnist_data.train.next_batch(50)
+
+            # Only print out every 100 values.
+            if index % 100 == 0:
+                train_accuracy = accuracy.eval(
+                    feed_dict={self.input_matrix: features, self.delta_matrix: targets}
+                )
+                if train_accuracy > highest_accuracy:
+                    highest_accuracy = train_accuracy
+                logger.info('Step: {0} | Cur Accuracy: {1} | Best Accuracy: {2}'.format(index, train_accuracy, highest_accuracy))
+
+            # Run a training step.
             tensor_session.run(
                 train_step,
                 feed_dict={self.input_matrix: features, self.delta_matrix: targets}
             )
 
         # Evaluate training results and print out.
-        correct_prediction = tensorflow.equal(tensorflow.argmax(self.output_matrix, 1), tensorflow.argmax(self.delta_matrix, 1))
-        accuracy = tensorflow.reduce_mean(tensorflow.cast(correct_prediction, tensorflow.float32))
-
-        logger.info(
+        logger.info('Testing Accuracy: {0}   Best Training Accuracy: {1}'.format(
             tensor_session.run(
                 accuracy,
                 feed_dict={self.input_matrix: self.mnist_data.test.images, self.delta_matrix: self.mnist_data.test.labels}
-            )
-        )
+            ),
+            highest_accuracy
+        ))

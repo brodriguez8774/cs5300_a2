@@ -18,6 +18,9 @@ logger = logging.get_logger(__name__)
 # mnist_set.train()
 # mnist_set = None
 
+logger.info('')
+logger.info('')
+
 # Run advanced Mnist tensor net.
 mnist_set = deep_mnist_net.DeepMnist()
 mnist_set.train()

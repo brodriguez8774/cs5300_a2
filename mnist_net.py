@@ -47,7 +47,8 @@ class BasicMnist():
         self.output_matrix = tensorflow.matmul(self.input_matrix, weight_matrix) + bias_matrix
         self.delta_matrix = tensorflow.placeholder(tensorflow.float32, [None, 10])
         cross_entropy = tensorflow.reduce_mean(
-            tensorflow.nn.softmax_cross_entropy_with_logits_v2(labels=self.delta_matrix, logits=self.output_matrix))
+            tensorflow.nn.softmax_cross_entropy_with_logits_v2(labels=self.delta_matrix, logits=self.output_matrix)
+        )
 
         return cross_entropy
 
@@ -79,23 +80,34 @@ class BasicMnist():
             # Only print out every 100 values.
             if index % 100 == 0:
                 train_accuracy = accuracy.eval(
-                    feed_dict={self.input_matrix: features, self.delta_matrix: targets}
+                    feed_dict={
+                        self.input_matrix: features,
+                        self.delta_matrix: targets
+                    }
                 )
                 if train_accuracy > highest_accuracy:
                     highest_accuracy = train_accuracy
-                logger.info('Step: {0} | Cur Accuracy: {1} | Best Accuracy: {2}'.format(index, train_accuracy, highest_accuracy))
+                logger.info(
+                    'Step: {0} | Cur Accuracy: {1} | Best Accuracy: {2}'.format(index, train_accuracy, highest_accuracy)
+                )
 
             # Run a training step.
             self.tensor_session.run(
                 train_step,
-                feed_dict={self.input_matrix: features, self.delta_matrix: targets}
+                feed_dict={
+                    self.input_matrix: features,
+                    self.delta_matrix: targets
+                }
             )
 
         # Evaluate training results and print out.
         logger.info('Testing Accuracy: {0}   Best Training Accuracy: {1}'.format(
             self.tensor_session.run(
                 accuracy,
-                feed_dict={self.input_matrix: self.mnist_data.test.images, self.delta_matrix: self.mnist_data.test.labels}
+                feed_dict={
+                    self.input_matrix: self.mnist_data.test.images,
+                    self.delta_matrix: self.mnist_data.test.labels
+                }
             ),
             highest_accuracy
         ))

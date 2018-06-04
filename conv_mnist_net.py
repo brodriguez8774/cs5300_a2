@@ -54,7 +54,7 @@ class ConvMnist():
         # Downsample further for simplification of dense layers.
         flattening_pool = tensorflow.reshape(conv_layer_2, [-1, 7*7*64])
 
-        # Define first dense layer. Also applies relu for gradient learning function.
+        # Define first dense layer. Also applies relu for the activation function.
         conv_output = tensorflow.nn.relu(self.create_dense_layer(flattening_pool, 7 * 7 * 64, 1024))
 
         # Define delta matrix.
@@ -187,7 +187,7 @@ class ConvMnist():
                     'Step: {0} | Cur Accuracy: {1} | Best Accuracy: {2}'.format(index, train_accuracy, highest_accuracy)
                 )
 
-            # Run a given training step.
+            # Run a training step.
             self.tensor_session.run(
                 train_step,
                 feed_dict={

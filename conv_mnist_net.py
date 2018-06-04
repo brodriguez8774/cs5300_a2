@@ -42,80 +42,116 @@ class ConvMnist():
         # Define input matrix setup.
         self.input_matrix = tensorflow.placeholder(tensorflow.float32, shape=[None, 784])
 
-        # Define first convolutional layer.
-        # Weights have 32 features per 5x5 patch.
-        conv_1_weights = self.create_weights([5, 5, 1, 32])
-        conv_1_biases = self.create_bias([32])
-
         # Reshape image by width, height, and number of color channels. Not sure what first dimension is.
         x_image = tensorflow.reshape(self.input_matrix, [-1, 28, 28, 1])
 
-        hidden_conv_1 = tensorflow.nn.relu(
-            tensorflow.nn.conv2d(x_image, conv_1_weights, strides=[1, 1, 1, 1], padding='SAME') + conv_1_biases
-        )
-        hidden_pool_1 = tensorflow.nn.max_pool(hidden_conv_1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+        # Define first convolutional layer.
+        conv_layer_1 = self.create_conv_layer(x_image, 1, 32)
 
         # Define second convolutional layer.
-        # Weights have 64 features per 5x5 patch.
-        conv_2_weights = self.create_weights([5, 5, 32, 64])
-        conv_2_biases = self.create_bias([64])
-        hidden_conv_2 = tensorflow.nn.relu(
-            tensorflow.nn.conv2d(hidden_pool_1, conv_2_weights, strides=[1, 1, 1, 1], padding='SAME') + conv_2_biases
-        )
-        hidden_pool_2 = tensorflow.nn.max_pool(hidden_conv_2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+        conv_layer_2 = self.create_conv_layer(conv_layer_1, 32, 64)
 
-        # Define dense layer.
-        # Images are now 7x7 with 64 features.
-        dense_1_weights = tensorflow.Variable(tensorflow.truncated_normal([7 * 7 * 64, 1024], mean=0.0, stddev=0.01))
-        dense_1_biases = tensorflow.Variable(tensorflow.zeros([1024]))
+        # Downsample further for simplification of dense layers.
+        flattening_pool = tensorflow.reshape(conv_layer_2, [-1, 7*7*64])
 
-        # What does this do??
-        flat_pool = tensorflow.reshape(hidden_pool_2, [-1, 7 * 7 * 64])
+        # Define first dense layer. Also applies relu for gradient learning function.
+        conv_output = tensorflow.nn.relu(self.create_dense_layer(flattening_pool, 7 * 7 * 64, 1024))
 
-        # Define output and loss matrix setups.
-        conv_output = tensorflow.nn.relu(tensorflow.matmul(flat_pool, dense_1_weights) + dense_1_biases)
+        # Define delta matrix.
         self.delta_matrix = tensorflow.placeholder(tensorflow.float32, [None, 10])
 
         # "Dropout" layer used during training to prevent overfitting.
-        # Note: Syntax does not seem to be supported by tensorflow 1.5. Excluding dropout functionality.
-        # self.keep_prob = tensorflow.placeholder(tensorflow.float32)
-        hidden_drop = tensorflow.nn.dropout(conv_output, self.keep_prob)
+        dropout_layer = tensorflow.nn.dropout(conv_output, self.keep_prob)
 
-        # Create final dense layer.
-        dense_2_weights = tensorflow.Variable(tensorflow.truncated_normal([1024, 10], mean=0.0, stddev=0.01))
-        dense_2_bias = tensorflow.Variable(tensorflow.truncated_normal([10], mean=0.0, stddev=0.01))
-        self.output_matrix = tensorflow.matmul(hidden_drop, dense_2_weights) + dense_2_bias
+        # Create final layer/second dense layer.
+        self.output_matrix = self.create_dense_layer(dropout_layer, 1024, 10)
 
-        # Determine cross entropy.
+        # Determine cross entropy. Used to actually train net gradient.
         cross_entropy = tensorflow.reduce_mean(
             tensorflow.nn.softmax_cross_entropy_with_logits_v2(labels=self.delta_matrix, logits=self.output_matrix)
         )
 
         return cross_entropy
 
-    def create_weights(self, shape):
+    def create_conv_layer(self, x_inputs, input_dimension, output_dimension):
+        """
+        Define a given convolutional layer.
+        See https://www.tensorflow.org/tutorials/layers.
+        :param x_inputs: The input values for layer to manipulate.
+        :param input_dimension: Input dimension of features.
+        :param output_dimension: Output dimension of features.
+        :return: Full convolutional layer (or at least the necessary hook into it).
+        """
+        # Weights will have [output_dimension] features per 5x5 patch.
+        conv_weights = self.create_conv_weights([5, 5, input_dimension, output_dimension])
+        conv_biases = self.create_conv_bias([output_dimension])
+
+        # Apply convolutional filters. Stride first and last value should always be 1.
+        # Inner values are height and width, respectively.
+        conv_filter = tensorflow.nn.relu(
+            tensorflow.nn.conv2d(x_inputs, conv_weights, strides=[1, 1, 1, 1], padding='SAME') + conv_biases
+        )
+
+        # Pooling downsamples image data to a smaller pixel size, as filters seem to greatly expand it.
+        pooling_layer = tensorflow.nn.max_pool(conv_filter, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+        return pooling_layer
+
+    def create_conv_weights(self, shape):
         """
         Create weights of the given shape.
-        :param shape: Number of values to contain.
+        :param shape: Dimensions of weights, in array format.
         :return: Weight matrix variable.
         """
         weights = tensorflow.truncated_normal(shape, stddev=0.1)
         return tensorflow.Variable(weights)
 
-    def create_bias(self, shape):
+    def create_conv_bias(self, shape):
         """
         Create bias of the given shape.
-        :param shape: Number of values to contain.
-        :return: Weight matrix variable.
+        :param shape: Dimensions of bias, in array format.
+        :return: Bias matrix variable.
         """
         bias = tensorflow.constant(0.1, shape=shape)
+        return tensorflow.Variable(bias)
+
+    def create_dense_layer(self, x_inputs, input_dimension, output_dimension):
+        """
+        Define a given dense node layer.
+        :param x_inputs: The input values for layer to manipulate.
+        :param input_dimension: Input dimension of features.
+        :param output_dimension: Output dimension of features.
+        :return: Full dense node layer (or at least the necessary hook into it).
+        """
+        dense_weights = self.create_dense_weights([input_dimension, output_dimension])
+        dense_biases = self.create_dense_bias([output_dimension])
+
+        # Apply matrix layer logic.
+        dense_layer = tensorflow.matmul(x_inputs, dense_weights) + dense_biases
+        return dense_layer
+
+    def create_dense_weights(self, shape):
+        """
+        Create weights of the given shape.
+        :param shape: Dimensions of weights, in array format.
+        :return: Weight matrix variable.
+        """
+        weights = tensorflow.truncated_normal(shape, mean=0.0, stddev=0.01)
+        return tensorflow.Variable(weights)
+
+    def create_dense_bias(self, shape):
+        """
+        Create bias of the given shape.
+        :param shape: Dimensions of bias, in array format.
+        :return: Bias matrix variable.
+        """
+        bias = tensorflow.truncated_normal(shape, mean=0.0, stddev=0.01)
         return tensorflow.Variable(bias)
 
     def train(self):
         """
         Train tensor net.
         """
-        # Define a training step, using delta and Gradient Descent. Learning rate of 0.5.
+        # Define a training step, using entropy and Gradient Descent. Learning rate of 0.5.
         train_step = tensorflow.train.GradientDescentOptimizer(0.5).minimize(self.cross_entropy)
 
         # Initialize tensorflow session.
@@ -136,25 +172,40 @@ class ConvMnist():
         for index in range(1000):
             features, targets = self.mnist_data.train.next_batch(50)
 
-            # Only print out every 100 values.
+            # Only print out every 100 values. Displays step number and accuracy info.
             if index % 100 == 0:
                 train_accuracy = accuracy.eval(
-                    feed_dict={self.input_matrix: features, self.delta_matrix: targets, self.keep_prob: 1.0}
+                    feed_dict={
+                        self.input_matrix: features,
+                        self.delta_matrix: targets,
+                        self.keep_prob: 1.0
+                    }
                 )
                 if train_accuracy > highest_accuracy:
                     highest_accuracy = train_accuracy
-                logger.info('Step: {0} | Cur Accuracy: {1} | Best Accuracy: {2}'.format(index, train_accuracy, highest_accuracy))
+                logger.info(
+                    'Step: {0} | Cur Accuracy: {1} | Best Accuracy: {2}'.format(index, train_accuracy, highest_accuracy)
+                )
 
+            # Run a given training step.
             self.tensor_session.run(
                 train_step,
-                feed_dict={self.input_matrix: features, self.delta_matrix: targets, self.keep_prob: 0.5}
+                feed_dict={
+                    self.input_matrix: features,
+                    self.delta_matrix: targets,
+                    self.keep_prob: 0.5
+                }
             )
 
-        # Evaluate training results and print out.
+        # Evaluate results and print out.
         logger.info('Testing Accuracy: {0}   Best Training Accuracy: {1}'.format(
             self.tensor_session.run(
                 accuracy,
-                feed_dict={self.input_matrix: self.mnist_data.test.images, self.delta_matrix: self.mnist_data.test.labels, self.keep_prob: 1.0}
+                feed_dict={
+                    self.input_matrix: self.mnist_data.test.images,
+                    self.delta_matrix: self.mnist_data.test.labels,
+                    self.keep_prob: 1.0
+                }
             ),
             highest_accuracy
         ))

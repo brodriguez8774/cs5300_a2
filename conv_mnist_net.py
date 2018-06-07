@@ -71,6 +71,10 @@ class ConvMnist():
             tensorflow.nn.softmax_cross_entropy_with_logits_v2(labels=self.delta_matrix, logits=self.output_matrix)
         )
 
+        # Initialize tensorflow session.
+        self.tensor_session = tensorflow.InteractiveSession()
+        tensorflow.global_variables_initializer().run()
+
         return cross_entropy
 
     def create_conv_layer(self, x_inputs, input_dimension, output_dimension):
@@ -152,11 +156,7 @@ class ConvMnist():
         Train tensor net.
         """
         # Define a training step, using entropy and Gradient Descent. Learning rate of 0.5.
-        train_step = tensorflow.train.GradientDescentOptimizer(0.5).minimize(self.cross_entropy)
-
-        # Initialize tensorflow session.
-        self.tensor_session = tensorflow.InteractiveSession()
-        tensorflow.global_variables_initializer().run()
+        train_step = tensorflow.train.GradientDescentOptimizer(0.1).minimize(self.cross_entropy)
 
         # Create structures to calculate accuracy.
         correct_prediction = tensorflow.equal(
@@ -164,11 +164,10 @@ class ConvMnist():
             tensorflow.argmax(self.delta_matrix, 1)
         )
         accuracy = tensorflow.reduce_mean(tensorflow.cast(correct_prediction, tensorflow.float32))
+        total_accuracy = 0
         highest_accuracy = 0
-        logger.info('')
-        logger.info('')
 
-        # Actually step through and train on data.
+        # Step through and train on data.
         for index in range(1000):
             features, targets = self.mnist_data.train.next_batch(50)
 
@@ -183,9 +182,10 @@ class ConvMnist():
                 )
                 if train_accuracy > highest_accuracy:
                     highest_accuracy = train_accuracy
-                logger.info(
-                    'Step: {0} | Cur Accuracy: {1} | Best Accuracy: {2}'.format(index, train_accuracy, highest_accuracy)
-                )
+                # logger.info(
+                #     'Step: {0} | Cur Accuracy: {1} | Best Accuracy: {2}'.format(index, train_accuracy, highest_accuracy)
+                # )
+                total_accuracy += train_accuracy
 
             # Run a training step.
             self.tensor_session.run(
@@ -197,15 +197,24 @@ class ConvMnist():
                 }
             )
 
-        # Evaluate results and print out.
-        logger.info('Testing Accuracy: {0}   Best Training Accuracy: {1}'.format(
-            self.tensor_session.run(
-                accuracy,
-                feed_dict={
-                    self.input_matrix: self.mnist_data.test.images,
-                    self.delta_matrix: self.mnist_data.test.labels,
-                    self.keep_prob: 1.0
-                }
-            ),
-            highest_accuracy
-        ))
+        test_accuracy = accuracy.eval(
+            feed_dict={
+                self.input_matrix: self.mnist_data.test.images,
+                self.delta_matrix: self.mnist_data.test.labels,
+                self.keep_prob: 1.0,
+            }
+        )
+        # # Evaluate results and print out.
+        # logger.info('Testing Accuracy: {0}   Best Training Accuracy: {1}'.format(
+        #     self.tensor_session.run(
+        #         accuracy,
+        #         feed_dict={
+        #             self.input_matrix: self.mnist_data.test.images,
+        #             self.delta_matrix: self.mnist_data.test.labels,
+        #             self.keep_prob: 1.0
+        #         }
+        #     ),
+        #     highest_accuracy
+        # ))
+
+        return [(total_accuracy / 10), test_accuracy]

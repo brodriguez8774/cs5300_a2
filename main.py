@@ -67,17 +67,17 @@ basic_mnist_tracker.display_plot('Basic Mnist Accuracy Results', 'Epoch Number',
 # Display all conv mnist results.
 l_list = conv_mnist_tracker.plot_results(conv_mnist_train_data, color='b', best_fit_line=True, line_label='Training Best Fit')
 conv_mnist_tracker.plot_results(conv_mnist_test_data, color='r', best_fit_line=True, line_label='Testing Best Fit', label_list=l_list)
-conv_mnist_tracker.display_plot('Conv Mnist Error Results', 'Epoch Number', 'Accuracy')
+conv_mnist_tracker.display_plot('Conv Mnist Accuracy Results', 'Epoch Number', 'Accuracy')
 
 
 # Compare training of both basic and conv mnist sets.
-l_list = basic_mnist_tracker.plot_results(basic_mnist_test_data, color='b', best_fit_line=True, line_label='Basic Mnist Fit')
+l_list = basic_mnist_tracker.plot_results(basic_mnist_train_data, color='b', best_fit_line=True, line_label='Basic Mnist Fit')
 basic_mnist_tracker.plot_results(conv_mnist_train_data, color='r', best_fit_line=True, line_label='Conv Mnist Fit', label_list=l_list)
 basic_mnist_tracker.display_plot('Mnist Training Accuracy', 'Epoch Number', 'Accuracy')
 
 
 # Compare testing of both basic and conv mnist sets.
-l_list = conv_mnist_tracker.plot_results(conv_mnist_train_data, color='b', best_fit_line=True, line_label='Basic Mnist Fit')
+l_list = conv_mnist_tracker.plot_results(basic_mnist_test_data, color='b', best_fit_line=True, line_label='Basic Mnist Fit')
 conv_mnist_tracker.plot_results(conv_mnist_test_data, color='r', best_fit_line=True, line_label='Conv Mnist Fit', label_list=l_list)
 conv_mnist_tracker.display_plot('Mnist Testing Accuracy', 'Epoch Number', 'Accuracy')
 
